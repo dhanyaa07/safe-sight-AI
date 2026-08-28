@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/api-client-react",
+  "name": "@workspace/api-zod",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@tanstack/react-query": "catalog:"
-  },
-  "peerDependencies": {
-    "react": ">=18"
+    "zod": "catalog:"
   }
 }

@@ -1,0 +1,640 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: SafeSight AI — PPE compliance detection API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: analyze
+    description: PPE detection and analysis
+  - name: analyses
+    description: Analysis history and records
+  - name: dashboard
+    description: Dashboard statistics and aggregates
+  - name: model
+    description: Model information and metrics
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /analyze:
+    post:
+      operationId: analyzeImage
+      tags: [analyze]
+      summary: Analyze a single image for PPE compliance
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/ImageUploadInput"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /analyze/batch:
+    post:
+      operationId: analyzeBatch
+      tags: [analyze]
+      summary: Analyze multiple images for PPE compliance
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/BatchUploadInput"
+      responses:
+        "200":
+          description: Batch analysis results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchAnalysisResult"
+
+  /analyses:
+    get:
+      operationId: listAnalyses
+      tags: [analyses]
+      summary: List all past analyses
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisList"
+
+  /analyses/{id}:
+    get:
+      operationId: getAnalysis
+      tags: [analyses]
+      summary: Get a specific analysis by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRecord"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteAnalysis
+      tags: [analyses]
+      summary: Delete an analysis record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /analyses/{id}/report:
+    get:
+      operationId: downloadReport
+      tags: [analyses]
+      summary: Download the annotated image report for an analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Annotated image file
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+
+  /analyses/{id}/toggle-blur:
+    post:
+      operationId: toggleBlur
+      tags: [analyses]
+      summary: Toggle face blur on a stored analysis image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRecord"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics and aggregates
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/trend:
+    get:
+      operationId: getComplianceTrend
+      tags: [dashboard]
+      summary: Get compliance trend over time
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Trend data points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTrend"
+
+  /model-info:
+    get:
+      operationId: getModelInfo
+      tags: [model]
+      summary: Get model architecture and evaluation metrics
+      responses:
+        "200":
+          description: Model information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelInfo"
+
+  /demo-images:
+    get:
+      operationId: listDemoImages
+      tags: [analyze]
+      summary: List available demo images
+      responses:
+        "200":
+          description: List of demo image metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  images:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DemoImage"
+                required:
+                  - images
+
+  /demo-images/{filename}/analyze:
+    post:
+      operationId: analyzeDemoImage
+      tags: [analyze]
+      summary: Analyze a built-in demo image
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectionOptions"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+
+components:
+  schemas:
+    ImageUploadInput:
+      type: object
+      properties:
+        image:
+          type: string
+          format: binary
+        confidence_threshold:
+          type: number
+          default: 0.5
+        blur_faces:
+          type: boolean
+          default: false
+      required:
+        - image
+
+    BatchUploadInput:
+      type: object
+      properties:
+        images:
+          type: array
+          items:
+            type: string
+            format: binary
+        confidence_threshold:
+          type: number
+          default: 0.5
+        blur_faces:
+          type: boolean
+          default: false
+      required:
+        - images
+
+    DetectionOptions:
+      type: object
+      properties:
+        confidence_threshold:
+          type: number
+          default: 0.5
+        blur_faces:
+          type: boolean
+          default: false
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    Detection:
+      type: object
+      properties:
+        class_name:
+          type: string
+        confidence:
+          type: number
+        bbox:
+          type: array
+          items:
+            type: number
+          description: "[x1, y1, x2, y2] normalized 0-1"
+        is_compliant:
+          type: boolean
+      required:
+        - class_name
+        - confidence
+        - bbox
+        - is_compliant
+
+    DetectionSummary:
+      type: object
+      properties:
+        class_name:
+          type: string
+        count:
+          type: integer
+        avg_confidence:
+          type: number
+      required:
+        - class_name
+        - count
+        - avg_confidence
+
+    AnalysisResult:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        image_filename:
+          type: string
+        annotated_image_url:
+          type: string
+        total_persons_detected:
+          type: integer
+        compliant_count:
+          type: integer
+        non_compliant_count:
+          type: integer
+        compliance_rate:
+          type: number
+          description: "0–100 percentage"
+        detections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Detection"
+        detection_summary:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionSummary"
+        confidence_threshold_used:
+          type: number
+        blur_faces:
+          type: boolean
+        alert:
+          type: boolean
+          description: "true if compliance_rate below alert threshold"
+        alert_threshold:
+          type: number
+      required:
+        - id
+        - timestamp
+        - image_filename
+        - annotated_image_url
+        - total_persons_detected
+        - compliant_count
+        - non_compliant_count
+        - compliance_rate
+        - detections
+        - detection_summary
+        - confidence_threshold_used
+        - blur_faces
+        - alert
+        - alert_threshold
+
+    BatchAnalysisResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalysisResult"
+        aggregate_compliance_rate:
+          type: number
+        total_images:
+          type: integer
+        total_persons:
+          type: integer
+      required:
+        - results
+        - aggregate_compliance_rate
+        - total_images
+        - total_persons
+
+    AnalysisRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        image_filename:
+          type: string
+        annotated_image_url:
+          type: string
+        total_persons_detected:
+          type: integer
+        compliant_count:
+          type: integer
+        non_compliant_count:
+          type: integer
+        compliance_rate:
+          type: number
+        confidence_threshold_used:
+          type: number
+        blur_faces:
+          type: boolean
+        detection_summary:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionSummary"
+      required:
+        - id
+        - timestamp
+        - image_filename
+        - annotated_image_url
+        - total_persons_detected
+        - compliant_count
+        - non_compliant_count
+        - compliance_rate
+        - confidence_threshold_used
+        - blur_faces
+        - detection_summary
+
+    AnalysisList:
+      type: object
+      properties:
+        analyses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalysisRecord"
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+        pages:
+          type: integer
+      required:
+        - analyses
+        - total
+        - page
+        - per_page
+        - pages
+
+    DashboardStats:
+      type: object
+      properties:
+        total_analyses:
+          type: integer
+        average_compliance_rate:
+          type: number
+        highest_compliance_rate:
+          type: number
+        lowest_compliance_rate:
+          type: number
+        total_persons_analyzed:
+          type: integer
+        total_compliant:
+          type: integer
+        total_non_compliant:
+          type: integer
+        gear_violation_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "Class name → count of violations"
+        recent_analyses:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalysisRecord"
+      required:
+        - total_analyses
+        - average_compliance_rate
+        - highest_compliance_rate
+        - lowest_compliance_rate
+        - total_persons_analyzed
+        - total_compliant
+        - total_non_compliant
+        - gear_violation_breakdown
+        - recent_analyses
+
+    TrendPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        compliance_rate:
+          type: number
+        count:
+          type: integer
+      required:
+        - date
+        - compliance_rate
+        - count
+
+    ComplianceTrend:
+      type: object
+      properties:
+        trend:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendPoint"
+        days:
+          type: integer
+      required:
+        - trend
+        - days
+
+    ModelInfo:
+      type: object
+      properties:
+        model_name:
+          type: string
+        architecture:
+          type: string
+        dataset:
+          type: string
+        classes:
+          type: array
+          items:
+            type: string
+        metrics:
+          $ref: "#/components/schemas/ModelMetrics"
+        description:
+          type: string
+      required:
+        - model_name
+        - architecture
+        - dataset
+        - classes
+        - metrics
+        - description
+
+    ModelMetrics:
+      type: object
+      properties:
+        mAP50:
+          type: number
+        mAP50_95:
+          type: number
+        precision:
+          type: number
+        recall:
+          type: number
+        f1_score:
+          type: number
+        inference_time_ms:
+          type: number
+      required:
+        - mAP50
+        - mAP50_95
+        - precision
+        - recall
+        - f1_score
+        - inference_time_ms
+
+    DemoImage:
+      type: object
+      properties:
+        filename:
+          type: string
+        label:
+          type: string
+        url:
+          type: string
+      required:
+        - filename
+        - label
+        - url
